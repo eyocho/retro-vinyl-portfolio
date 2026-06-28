@@ -5,8 +5,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 backend:
-  name: github
-  repo: eyocho/retro-vinyl-portfolio # ← ganti dengan username/repo Anda
+  name: git-gateway
   branch: main
 
 # Tempat menyimpan gambar yang diupload via CMS
