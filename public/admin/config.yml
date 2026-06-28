@@ -6,8 +6,10 @@
 
 backend:
   name: github
-  repo: eyocho/retro-vinyl-portfolio   # ← ganti dengan username/repo Anda
+  repo: eyocho/retro-vinyl-portfolio # ← ganti dengan username/repo Anda
   branch: main
+  base_url: https://api.netlify.com
+  auth_endpoint: auth
 
 # Tempat menyimpan gambar yang diupload via CMS
 media_folder: public/images/uploads
@@ -17,7 +19,6 @@ public_folder: /images/uploads
 local_backend: false
 
 collections:
-
   # ── 1. PROFIL UTAMA ────────────────────────────────────────────────────────
   - name: "profile"
     label: "👤 Profil Utama"
@@ -26,11 +27,31 @@ collections:
         label: "Data Profil"
         file: "src/data/profile.json"
         fields:
-          - { label: "Nama Lengkap", name: "name", widget: "string", hint: "Ditampilkan sebagai 'Main Artist' di Hero section" }
-          - { label: "Role / Pekerjaan", name: "role", widget: "string", hint: "Contoh: Full Stack Developer & UI Designer" }
-          - { label: "Lokasi", name: "location", widget: "string", default: "Jakarta, Indonesia" }
+          - {
+              label: "Nama Lengkap",
+              name: "name",
+              widget: "string",
+              hint: "Ditampilkan sebagai 'Main Artist' di Hero section",
+            }
+          - {
+              label: "Role / Pekerjaan",
+              name: "role",
+              widget: "string",
+              hint: "Contoh: Full Stack Developer & UI Designer",
+            }
+          - {
+              label: "Lokasi",
+              name: "location",
+              widget: "string",
+              default: "Jakarta, Indonesia",
+            }
           - { label: "Email Kontak", name: "email", widget: "string" }
-          - { label: "Foto Profil", name: "photo", widget: "image", required: false }
+          - {
+              label: "Foto Profil",
+              name: "photo",
+              widget: "image",
+              required: false,
+            }
           - label: "Biografi"
             name: "bio"
             widget: "list"
@@ -40,9 +61,24 @@ collections:
             name: "stats"
             widget: "list"
             fields:
-              - { label: "Label", name: "label", widget: "string", hint: "Contoh: Years of Experience" }
-              - { label: "Nilai", name: "value", widget: "string", hint: "Contoh: 4+" }
-              - { label: "Satuan", name: "unit", widget: "string", hint: "Contoh: tahun" }
+              - {
+                  label: "Label",
+                  name: "label",
+                  widget: "string",
+                  hint: "Contoh: Years of Experience",
+                }
+              - {
+                  label: "Nilai",
+                  name: "value",
+                  widget: "string",
+                  hint: "Contoh: 4+",
+                }
+              - {
+                  label: "Satuan",
+                  name: "unit",
+                  widget: "string",
+                  hint: "Contoh: tahun",
+                }
 
   # ── 2. SKILLS / MIXER BOARD ────────────────────────────────────────────────
   - name: "skills"
@@ -56,14 +92,31 @@ collections:
             name: "channels"
             widget: "list"
             fields:
-              - { label: "Kategori", name: "category", widget: "string", hint: "Contoh: Frontend" }
-              - { label: "Warna", name: "color", widget: "color", default: "#dcae1d" }
+              - {
+                  label: "Kategori",
+                  name: "category",
+                  widget: "string",
+                  hint: "Contoh: Frontend",
+                }
+              - {
+                  label: "Warna",
+                  name: "color",
+                  widget: "color",
+                  default: "#dcae1d",
+                }
               - label: "Skills"
                 name: "skills"
                 widget: "list"
                 fields:
                   - { label: "Nama Skill", name: "name", widget: "string" }
-                  - { label: "Level (0-100)", name: "level", widget: "number", value_type: "int", min: 0, max: 100 }
+                  - {
+                      label: "Level (0-100)",
+                      name: "level",
+                      widget: "number",
+                      value_type: "int",
+                      min: 0,
+                      max: 100,
+                    }
 
   # ── 3. PROYEK / DISCOGRAPHY ────────────────────────────────────────────────
   - name: "projects"
@@ -77,19 +130,49 @@ collections:
             name: "projects"
             widget: "list"
             fields:
-              - { label: "Nomor Track", name: "trackNumber", widget: "string", hint: "Contoh: 01" }
+              - {
+                  label: "Nomor Track",
+                  name: "trackNumber",
+                  widget: "string",
+                  hint: "Contoh: 01",
+                }
               - { label: "Nama Proyek", name: "title", widget: "string" }
               - { label: "Tahun", name: "year", widget: "string" }
-              - { label: "Durasi (dekoratif)", name: "duration", widget: "string", hint: "Contoh: 3:42" }
-              - { label: "Role Anda", name: "role", widget: "string", hint: "Contoh: Full Stack Developer" }
+              - {
+                  label: "Durasi (dekoratif)",
+                  name: "duration",
+                  widget: "string",
+                  hint: "Contoh: 3:42",
+                }
+              - {
+                  label: "Role Anda",
+                  name: "role",
+                  widget: "string",
+                  hint: "Contoh: Full Stack Developer",
+                }
               - { label: "Deskripsi", name: "description", widget: "text" }
               - label: "Teknologi (Genre)"
                 name: "genre"
                 widget: "list"
                 field: { label: "Teknologi", name: "tech", widget: "string" }
-              - { label: "Link Live Demo", name: "liveUrl", widget: "string", required: false }
-              - { label: "Link GitHub", name: "githubUrl", widget: "string", required: false }
-              - { label: "Featured?", name: "highlight", widget: "boolean", default: false }
+              - {
+                  label: "Link Live Demo",
+                  name: "liveUrl",
+                  widget: "string",
+                  required: false,
+                }
+              - {
+                  label: "Link GitHub",
+                  name: "githubUrl",
+                  widget: "string",
+                  required: false,
+                }
+              - {
+                  label: "Featured?",
+                  name: "highlight",
+                  widget: "boolean",
+                  default: false,
+                }
 
   # ── 4. PLAYLIST / TRACKLIST MUSIK ─────────────────────────────────────────
   - name: "tracks"
@@ -105,4 +188,9 @@ collections:
             fields:
               - { label: "Judul Lagu", name: "title", widget: "string" }
               - { label: "Artis", name: "artist", widget: "string" }
-              - { label: "File Audio (path)", name: "src", widget: "string", hint: "Contoh: /audio/track-01.mp3" }
+              - {
+                  label: "File Audio (path)",
+                  name: "src",
+                  widget: "string",
+                  hint: "Contoh: /audio/track-01.mp3",
+                }
