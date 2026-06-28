@@ -1,0 +1,26 @@
+{
+  "tracks": [
+    {
+      "id": 1,
+      "title": "Midnight at the Studio",
+      "artist": "Lo-Fi Collective",
+      "src": "/audio/track-01.mp3",
+      "duration": 0
+    },
+    {
+      "id": 2,
+      "title": "Warm Vinyl Nights",
+      "artist": "Jazz Attic Sessions",
+      "src": "/audio/track-02.mp3",
+      "duration": 0
+    },
+    {
+      "id": 3,
+      "title": "Analog Dreams",
+      "artist": "The Groove Engineers",
+      "src": "/audio/track-03.mp3",
+      "duration": 0
+    }
+  ],
+  "defaultDuration": 180
+}

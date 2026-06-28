@@ -1,0 +1,29 @@
+{
+  "name": "Arya Pratama",
+  "role": "Full Stack Developer & UI Designer",
+  "location": "Jakarta, Indonesia",
+  "email": "arya@example.com",
+  "photo": "",
+  "bio": [
+    "Lahir dan besar di lingkungan yang penuh rasa ingin tahu, Arya Pratama memulai perjalanannya di dunia digital sejak usia 16 tahun — jauh sebelum \"full stack developer\" menjadi istilah yang populer di Indonesia.",
+    "Seperti seorang musisi yang menghabiskan ribuan jam di ruang latihan sebelum naik panggung, Arya menempa keahliannya lewat proyek demi proyek: dari website sederhana untuk UMKM lokal, hingga platform skala enterprise yang melayani ratusan ribu pengguna.",
+    "Filosofinya sederhana namun kuat: kode yang baik adalah kode yang bisa dibaca oleh manusia, bukan hanya mesin. Setiap baris yang ditulis adalah not musik dalam simfoni yang lebih besar — sistem yang harmonis, indah, dan fungsional."
+  ],
+  "stats": [
+    { "label": "Years of Experience", "value": "4+", "unit": "tahun" },
+    { "label": "Lines of Code", "value": "200K+", "unit": "baris" },
+    { "label": "Cups of Coffee", "value": "1,842", "unit": "cangkir" },
+    { "label": "Projects Delivered", "value": "30+", "unit": "proyek" }
+  ],
+  "topSkills": ["React.js", "Node.js", "TypeScript", "UI/UX Design", "PostgreSQL"],
+  "heroTracklist": [
+    "A1. React.js & TypeScript ............. 5★",
+    "A2. Node.js & REST API ................. 5★",
+    "A3. UI/UX Design ......................... 4★"
+  ],
+  "socialLinks": {
+    "github": "https://github.com",
+    "linkedin": "https://linkedin.com",
+    "instagram": ""
+  }
+}
