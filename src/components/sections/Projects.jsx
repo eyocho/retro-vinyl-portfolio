@@ -147,7 +147,7 @@ function ProjectModal({ project, onClose }) {
         </motion.div>
       </motion.div>
     </AnimatePresence>
-  );
+  );``
 }
 
 // ── Sub: Satu baris tracklist ─────────────────────────────────────────────────
