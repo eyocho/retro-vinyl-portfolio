@@ -8,8 +8,6 @@ backend:
   name: github
   repo: eyocho/retro-vinyl-portfolio # ← ganti dengan username/repo Anda
   branch: main
-  base_url: https://api.netlify.com
-  auth_endpoint: auth
 
 # Tempat menyimpan gambar yang diupload via CMS
 media_folder: public/images/uploads
