@@ -1,30 +1,3 @@
-/**
- * AUDIOCONTEXT.JSX — Global Audio State Management
- * ─────────────────────────────────────────────────────────────────────────────
- * Ini adalah "mixer room" dari seluruh aplikasi. Semua state yang berhubungan
- * dengan audio dikelola di sini agar:
- *
- * 1. Musik TIDAK ter-restart saat pengguna scroll atau komponen re-render
- * 2. Semua komponen (VinylPlayer, Hero, Navbar) bisa mengontrol audio
- *    yang SAMA tanpa prop drilling
- * 3. Satu sumber kebenaran (single source of truth) untuk status play/pause
- *
- * ARSITEKTUR:
- * ┌─────────────────────────────────────────────────────┐
- * │  AudioProvider (membungkus seluruh App)              │
- * │  ├── useRef: audioRef → instance HTMLAudioElement    │
- * │  │   (TIDAK di-state, agar tidak trigger re-render)  │
- * │  └── useState: isPlaying, currentTrack, volume,      │
- * │                currentTime, duration, isMuted        │
- * └─────────────────────────────────────────────────────┘
- *
- * Kenapa useRef untuk Audio?
- * HTMLAudioElement adalah mutable object. Jika kita simpan di useState,
- * setiap perubahan property (currentTime, dll.) akan menyebabkan re-render
- * yang tidak perlu dan berpotensi menghentikan pemutaran audio.
- * ─────────────────────────────────────────────────────────────────────────────
- */
-
 import {
   createContext,
   useContext,
@@ -35,317 +8,188 @@ import {
 } from "react";
 import { TRACKS } from "../data/tracks";
 
-// ─── 1. Buat Context ───────────────────────────────────────────────────────
-// Nilai default null — komponen HARUS dibungkus AudioProvider untuk berfungsi
 const AudioContext = createContext(null);
 
-// ─── 2. Provider Component ────────────────────────────────────────────────
 export function AudioProvider({ children }) {
-  /**
-   * audioRef: Referensi langsung ke HTMLAudioElement
-   * Tidak ada nilai awal — kita instansiasi di dalam useEffect
-   * untuk memastikan DOM sudah siap (penting untuk SSR compatibility)
-   */
   const audioRef = useRef(null);
 
-  // ── State Utama ──────────────────────────────────────────────────────────
-  const [isPlaying, setIsPlaying]         = useState(false);
+  const [isPlaying, setIsPlaying]               = useState(false);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
-  const [volume, setVolumeState]          = useState(0.7);   // 0.0 – 1.0
-  const [isMuted, setIsMuted]             = useState(false);
-  const [currentTime, setCurrentTime]     = useState(0);     // detik
-  const [duration, setDuration]           = useState(0);     // detik
-  const [isLoading, setIsLoading]         = useState(false); // buffer state
+  const [volume, setVolumeState]                = useState(0.7);
+  const [isMuted, setIsMuted]                   = useState(false);
+  const [currentTime, setCurrentTime]           = useState(0);
+  const [duration, setDuration]                 = useState(0);
+  const [isLoading, setIsLoading]               = useState(false);
+  const [isLoop, setIsLoop]                     = useState(false);
+  const [isShuffle, setIsShuffle]               = useState(false);
+  const [isRepeatOne, setIsRepeatOne]           = useState(false);
+  const [playlist, setPlaylist]                 = useState(TRACKS);
 
-  // Track aktif saat ini (objek dari array TRACKS)
-  const currentTrack = TRACKS[currentTrackIndex];
+  const currentTrack = playlist[currentTrackIndex] ?? playlist[0];
 
-  // ── Inisialisasi Audio Element ────────────────────────────────────────────
+  const getNextIndex = useCallback((currentIdx, shuffleMode, loopMode, total) => {
+    if (shuffleMode) {
+      let next;
+      do { next = Math.floor(Math.random() * total); } while (next === currentIdx && total > 1);
+      return next;
+    }
+    const next = currentIdx + 1;
+    if (next >= total) return loopMode ? 0 : null;
+    return next;
+  }, []);
+
   useEffect(() => {
-    /**
-     * Buat HTMLAudioElement secara programatik, bukan lewat JSX <audio>.
-     * Ini memastikan elemen audio tetap hidup selama seluruh siklus hidup app,
-     * tidak tergantung render cycle React.
-     */
     const audio = new Audio();
     audio.volume = volume;
-    audio.preload = "metadata"; // Muat metadata (durasi) tapi belum audionya
-
+    audio.preload = "metadata";
     audioRef.current = audio;
 
-    // ── Event Listeners ──────────────────────────────────────────────────
-    // Dipanggil setiap ~250ms saat audio sedang dimainkan
-    const handleTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
-    };
+    const onTimeUpdate    = () => setCurrentTime(audio.currentTime);
+    const onMeta          = () => { setDuration(audio.duration); setIsLoading(false); };
+    const onWaiting       = () => setIsLoading(true);
+    const onCanPlay       = () => setIsLoading(false);
+    const onError         = () => { setIsLoading(false); setIsPlaying(false); };
 
-    // Dipanggil saat metadata audio (durasi, dll.) sudah tersedia
-    const handleLoadedMetadata = () => {
-      setDuration(audio.duration);
-      setIsLoading(false);
-    };
+    audio.addEventListener("timeupdate",      onTimeUpdate);
+    audio.addEventListener("loadedmetadata",  onMeta);
+    audio.addEventListener("waiting",         onWaiting);
+    audio.addEventListener("canplay",         onCanPlay);
+    audio.addEventListener("error",           onError);
 
-    // Dipanggil saat audio selesai dimainkan (auto-next track)
-    const handleEnded = () => {
-      handleNextTrack();
-    };
-
-    // Dipanggil saat audio sedang buffer/loading
-    const handleWaiting = () => {
-      setIsLoading(true);
-    };
-
-    // Dipanggil saat audio sudah siap dimainkan lagi setelah buffer
-    const handleCanPlay = () => {
-      setIsLoading(false);
-    };
-
-    // Dipanggil jika terjadi error (file tidak ditemukan, dll.)
-    const handleError = (e) => {
-      console.warn("Audio Error:", e.target.error);
-      // Coba lanjut ke track berikutnya jika ada error
-      setIsLoading(false);
-      setIsPlaying(false);
-    };
-
-    // Daftarkan semua event listener
-    audio.addEventListener("timeupdate", handleTimeUpdate);
-    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
-    audio.addEventListener("ended", handleEnded);
-    audio.addEventListener("waiting", handleWaiting);
-    audio.addEventListener("canplay", handleCanPlay);
-    audio.addEventListener("error", handleError);
-
-    // ── Cleanup ──────────────────────────────────────────────────────────
-    // Saat component unmount (biasanya tidak terjadi, tapi best practice)
     return () => {
-      audio.removeEventListener("timeupdate", handleTimeUpdate);
-      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
-      audio.removeEventListener("ended", handleEnded);
-      audio.removeEventListener("waiting", handleWaiting);
-      audio.removeEventListener("canplay", handleCanPlay);
-      audio.removeEventListener("error", handleError);
+      audio.removeEventListener("timeupdate",     onTimeUpdate);
+      audio.removeEventListener("loadedmetadata", onMeta);
+      audio.removeEventListener("waiting",        onWaiting);
+      audio.removeEventListener("canplay",        onCanPlay);
+      audio.removeEventListener("error",          onError);
       audio.pause();
-      audio.src = ""; // Bebaskan resource memori
+      audio.src = "";
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Hanya run sekali saat mount
+  }, []);
 
-  // ── Efek: Ganti Src Saat Track Berubah ───────────────────────────────────
+  // Handle track end — respects repeat-one, shuffle, loop
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
+    const onEnded = () => {
+      if (isRepeatOne) {
+        audio.currentTime = 0;
+        audio.play().catch(() => setIsPlaying(false));
+        return;
+      }
+      const next = getNextIndex(currentTrackIndex, isShuffle, isLoop, playlist.length);
+      if (next === null) { setIsPlaying(false); return; }
+      setCurrentTrackIndex(next);
+    };
+
+    audio.addEventListener("ended", onEnded);
+    return () => audio.removeEventListener("ended", onEnded);
+  }, [isRepeatOne, isShuffle, isLoop, currentTrackIndex, playlist.length, getNextIndex]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !currentTrack) return;
     setIsLoading(true);
     setCurrentTime(0);
     setDuration(0);
-
-    // Ganti sumber audio ke track baru
     audio.src = currentTrack.src;
-
-    // Muat metadata track baru
     audio.load();
-
-    /**
-     * Jika sedang playing saat ganti track, langsung putar yang baru.
-     * Penting: audio.play() mengembalikan Promise, tangani rejection-nya
-     * (bisa terjadi di browser yang belum ada interaksi user)
-     */
     if (isPlaying) {
-      audio.play().catch((err) => {
-        console.warn("Autoplay blocked:", err);
-        setIsPlaying(false);
-      });
+      audio.play().catch(() => setIsPlaying(false));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentTrackIndex]); // Hanya trigger saat index berubah, bukan isPlaying
+  }, [currentTrackIndex]);
 
-  // ── Efek: Sync Volume ─────────────────────────────────────────────────────
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    // Jika muted, set volume ke 0 tanpa mengubah state volume
     audio.volume = isMuted ? 0 : volume;
   }, [volume, isMuted]);
 
-  // ─── Fungsi Kontrol ──────────────────────────────────────────────────────
-
-  /**
-   * togglePlay: Tombol Play/Pause utama
-   * Menggunakan audio.play() dan audio.pause() dari Web Audio API
-   */
   const togglePlay = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio) return;
-
-    // Jika belum ada src (pertama kali), muat track pertama dulu
     if (!audio.src || audio.src === window.location.href) {
       audio.src = currentTrack.src;
       audio.load();
     }
-
     if (isPlaying) {
-      audio.pause();
-      setIsPlaying(false);
+      audio.pause(); setIsPlaying(false);
     } else {
-      try {
-        await audio.play();
-        setIsPlaying(true);
-      } catch (err) {
-        /**
-         * Browser Modern Policy: audio.play() bisa diblokir jika tidak ada
-         * interaksi user sebelumnya (autoplay policy).
-         * Ini normal — user harus klik tombol play manual pertama kali.
-         */
-        console.warn("Play failed (autoplay policy):", err.message);
-        setIsPlaying(false);
-      }
+      try { await audio.play(); setIsPlaying(true); }
+      catch { setIsPlaying(false); }
     }
   }, [isPlaying, currentTrack]);
 
-  /**
-   * handleNextTrack: Maju ke lagu berikutnya
-   * Loop kembali ke track pertama jika sudah di akhir playlist
-   */
   const handleNextTrack = useCallback(() => {
-    setCurrentTrackIndex((prev) => (prev + 1) % TRACKS.length);
-  }, []);
+    const next = getNextIndex(currentTrackIndex, isShuffle, isLoop, playlist.length);
+    if (next !== null) setCurrentTrackIndex(next);
+  }, [currentTrackIndex, isShuffle, isLoop, playlist.length, getNextIndex]);
 
-  /**
-   * handlePrevTrack: Kembali ke lagu sebelumnya
-   * Jika posisi > 3 detik, restart lagu saat ini dulu (behavior seperti Spotify)
-   */
   const handlePrevTrack = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
-
-    if (audio.currentTime > 3) {
-      // Restart lagu saat ini
-      audio.currentTime = 0;
-      setCurrentTime(0);
-    } else {
-      // Kembali ke track sebelumnya (loop ke akhir jika di track pertama)
-      setCurrentTrackIndex((prev) => (prev - 1 + TRACKS.length) % TRACKS.length);
+    if (audio.currentTime > 3) { audio.currentTime = 0; setCurrentTime(0); }
+    else {
+      const prev = (currentTrackIndex - 1 + playlist.length) % playlist.length;
+      setCurrentTrackIndex(prev);
     }
-  }, []);
+  }, [currentTrackIndex, playlist.length]);
 
-  /**
-   * handleSeek: Klik/drag progress bar untuk seek ke posisi tertentu
-   * @param {number} newTime - Waktu target dalam detik
-   */
-  const handleSeek = useCallback((newTime) => {
-    const audio = audioRef.current;
-    if (!audio) return;
+  const handleSeek          = useCallback((t) => { const a = audioRef.current; if (a) { a.currentTime = t; setCurrentTime(t); } }, []);
+  const handleVolumeChange  = useCallback((v) => { const c = Math.min(Math.max(v, 0), 1); setVolumeState(c); if (isMuted && c > 0) setIsMuted(false); }, [isMuted]);
+  const toggleMute          = useCallback(() => setIsMuted(p => !p), []);
+  const toggleLoop          = useCallback(() => setIsLoop(p => !p), []);
+  const toggleShuffle       = useCallback(() => setIsShuffle(p => !p), []);
+  const toggleRepeatOne     = useCallback(() => setIsRepeatOne(p => !p), []);
 
-    audio.currentTime = newTime;
-    setCurrentTime(newTime);
-  }, []);
-
-  /**
-   * handleVolumeChange: Ubah volume via slider
-   * @param {number} newVolume - Nilai 0.0 – 1.0
-   */
-  const handleVolumeChange = useCallback((newVolume) => {
-    const clampedVolume = Math.min(Math.max(newVolume, 0), 1);
-    setVolumeState(clampedVolume);
-    if (isMuted && clampedVolume > 0) {
-      setIsMuted(false); // Auto un-mute saat geser volume ke atas
-    }
-  }, [isMuted]);
-
-  /**
-   * toggleMute: Mute/unmute tanpa mengubah nilai slider volume
-   */
-  const toggleMute = useCallback(() => {
-    setIsMuted((prev) => !prev);
-  }, []);
-
-  /**
-   * playAndScroll: Dipanggil oleh tombol "Drop the Needle" di Hero section
-   * Memulai pemutaran DAN scroll ke bagian selanjutnya
-   * @param {string} targetId - ID elemen HTML yang dituju scroll
-   */
   const playAndScroll = useCallback(async (targetId = "about") => {
     const audio = audioRef.current;
     if (!audio) return;
-
-    // Muat track jika belum
-    if (!audio.src || audio.src === window.location.href) {
-      audio.src = currentTrack.src;
-      audio.load();
-    }
-
-    // Mulai putar
-    try {
-      await audio.play();
-      setIsPlaying(true);
-    } catch (err) {
-      console.warn("Play blocked:", err.message);
-    }
-
-    // Scroll ke target section dengan smooth behavior
-    const targetElement = document.getElementById(targetId);
-    if (targetElement) {
-      targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+    if (!audio.src || audio.src === window.location.href) { audio.src = currentTrack.src; audio.load(); }
+    try { await audio.play(); setIsPlaying(true); } catch {}
+    document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [currentTrack]);
 
-  // ─── Value yang Di-expose ke Seluruh App ──────────────────────────────────
-  const contextValue = {
-    // State
-    isPlaying,
-    currentTrack,
-    currentTrackIndex,
-    volume,
-    isMuted,
-    currentTime,
-    duration,
-    isLoading,
-    tracks: TRACKS,
+  const addToPlaylist = useCallback((track) => {
+    setPlaylist(prev => [...prev, track]);
+  }, []);
 
-    // Actions
-    togglePlay,
-    handleNextTrack,
-    handlePrevTrack,
-    handleSeek,
-    handleVolumeChange,
-    toggleMute,
-    playAndScroll,
+  const removeFromPlaylist = useCallback((index) => {
+    setPlaylist(prev => {
+      const next = prev.filter((_, i) => i !== index);
+      if (currentTrackIndex >= next.length) setCurrentTrackIndex(Math.max(0, next.length - 1));
+      return next;
+    });
+  }, [currentTrackIndex]);
+
+  const reorderPlaylist = useCallback((from, to) => {
+    setPlaylist(prev => {
+      const arr = [...prev];
+      const [moved] = arr.splice(from, 1);
+      arr.splice(to, 0, moved);
+      if (currentTrackIndex === from) setCurrentTrackIndex(to);
+      return arr;
+    });
+  }, [currentTrackIndex]);
+
+  const contextValue = {
+    isPlaying, currentTrack, currentTrackIndex, volume, isMuted,
+    currentTime, duration, isLoading, playlist,
+    isLoop, isShuffle, isRepeatOne,
+    togglePlay, handleNextTrack, handlePrevTrack, handleSeek,
+    handleVolumeChange, toggleMute, toggleLoop, toggleShuffle, toggleRepeatOne,
+    playAndScroll, addToPlaylist, removeFromPlaylist, reorderPlaylist,
+    setCurrentTrackIndex,
   };
 
-  return (
-    <AudioContext.Provider value={contextValue}>
-      {children}
-    </AudioContext.Provider>
-  );
+  return <AudioContext.Provider value={contextValue}>{children}</AudioContext.Provider>;
 }
 
-// ─── 3. Custom Hook untuk Konsumsi Context ───────────────────────────────────
-/**
- * useAudio — Hook untuk mengakses AudioContext
- *
- * Penggunaan di komponen mana pun:
- * ```jsx
- * import { useAudio } from '../context/AudioContext';
- *
- * function MyComponent() {
- *   const { isPlaying, togglePlay, currentTrack } = useAudio();
- *   ...
- * }
- * ```
- *
- * Akan throw error jika digunakan di luar AudioProvider —
- * ini membantu debugging lebih cepat.
- */
 export function useAudio() {
-  const context = useContext(AudioContext);
-  if (!context) {
-    throw new Error(
-      "useAudio() harus digunakan di dalam <AudioProvider>.\n" +
-      "Pastikan AudioProvider membungkus komponen di App.jsx."
-    );
-  }
-  return context;
+  const ctx = useContext(AudioContext);
+  if (!ctx) throw new Error("useAudio() harus digunakan di dalam <AudioProvider>.");
+  return ctx;
 }
 
 export default AudioContext;
